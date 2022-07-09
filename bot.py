@@ -60,10 +60,10 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     encoded = img_str.decode("utf-8")
 
-    result = await classify_image(encoded)
+    success, result = await classify_image(encoded)
 
     await update.message.reply_text(
-        f"Your are looking at {str(result)}. "
+        f"You are looking at {str(result)}. " if success else result
     )
 
     return ConversationHandler.END

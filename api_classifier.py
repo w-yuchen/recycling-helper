@@ -22,7 +22,7 @@ async def classify_image(source: str) -> Coroutine:
                     data = await res.json()
                     print(data)
                     if data["status"] == "COMPLETE": 
-                        return data["data"]["data"][0]['label']
-                    if data["status"] != "PENDING": 
-                        return data["status"]
+                        return True, data["data"]["data"][0]['label']
+                    if data["status"] == "FAILED": 
+                        return False, data["status"]
                 await sleep(0.2)
