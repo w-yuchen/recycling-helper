@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 GENDER, PHOTO, LOCATION, BIO = range(4)
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     await update.message.reply_text(
         "Please send me a photo of your trash. ",
@@ -68,6 +68,13 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     return ConversationHandler.END
 
+async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text(
+        "Please send me your location. ",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+    return LOCATION
 
 async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the location and asks for some info about the user."""
@@ -77,22 +84,10 @@ async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "Location of %s: %f / %f", user.first_name, user_location.latitude, user_location.longitude
     )
     await update.message.reply_text(
-        "Maybe I can visit you sometime! At last, tell me something about yourself."
+        f"Your location is {user_location}. "
     )
 
-    return BIO
-
-
-async def skip_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Skips the location and asks for info about the user."""
-    user = update.message.from_user
-    logger.info("User %s did not send a location.", user.first_name)
-    await update.message.reply_text(
-        "You seem a bit paranoid! At last, tell me something about yourself."
-    )
-
-    return BIO
-
+    return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels and ends the conversation."""
@@ -112,9 +107,10 @@ def main() -> None:
 
     # Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=[CommandHandler("photo", get_photo), CommandHandler("location", get_location)],
         states={
             PHOTO: [MessageHandler(filters.PHOTO, photo)],
+            LOCATION: [MessageHandler(filters.LOCATION, location)]
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
@@ -122,11 +118,14 @@ def main() -> None:
     application.add_handler(conv_handler)
 
     # Run the bot until the user presses Ctrl-C
-    # application.run_polling()
-    application.run_webhook(listen="0.0.0.0",
-                          port=int(PORT),
-                          url_path=TOKEN, 
-                          webhook_url="https://recycling-recognition.herokuapp.com/" + TOKEN)
+    # USE WHEN TESTING LOCALLY
+    application.run_polling()
+
+    # USE ON CLOUD
+    # application.run_webhook(listen="0.0.0.0",
+    #                       port=int(PORT),
+    #                       url_path=TOKEN, 
+    #                       webhook_url="https://recycling-recognition.herokuapp.com/" + TOKEN)
 
 if __name__ == "__main__":
     main()
