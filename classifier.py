@@ -7,4 +7,4 @@ def classify_stage1(img):
     pred, idx, probs = learn.predict(img)
     return dict(zip(categories1, map(float,probs)))
 
-print(classify_stage1('stage1ex1_t.jpeg'))
+# print(classify_stage1('stage1ex1_t.jpeg'))
