@@ -1,6 +1,6 @@
 -f https://download.pytorch.org/whl/cpu
-torch==1.12.0+cpu
-torchvision==0.13.0+cpu
+torch==1.12.0
+torchvision==0.13.0
 fastai==2.7.6
 Flask==2.1.2
 gunicorn==20.1.0
