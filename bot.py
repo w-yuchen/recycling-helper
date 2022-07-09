@@ -96,13 +96,8 @@ async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     return LOCATION
 
-def location_line_constructor(data): 
-    item_keys = data['distance'].keys()
-    items = {k:"" for k in item_keys}
-
-    for k in item_keys: 
-        items[k] = f"🔷 <b>{data['ADDRESSBLO'][k] + ' ' + data['ADDRESSBUI'][k]}</b>" + '\n' + f"<b>{data['ADDRESSSTR'][k]}</b>" + '\n' + f"<b>Singapore {data['ADDRESSPOS'][k]}</b>" + '\n' + f"{data['NAME'][k]}" + '\n' + f"{str(round(data['distance'][k] / 1000, 2))} km away"
-    return items
+def construct_location_line(d, addr): 
+    return f"🔷 <b>{addr['ADDRESSBLO'] + ' ' + addr['ADDRESSBUI']}</b>" + '\n' + f"<b>{addr['ADDRESSSTR']}</b>" + '\n' + f"<b>Singapore {addr['ADDRESSPOS']}</b>" + '\n' + f"{addr['NAME']}" + '\n' + f"{str(round(d, 2))} km away"
 
 async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the location and asks for some info about the user."""
@@ -113,8 +108,14 @@ async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
 
     nearest_bins = nearest(longitude=user_location.longitude, latitude=user_location.latitude)
-    lines = location_line_constructor(nearest_bins)
+    for d, addr in nearest_bins: 
+        await update.message.reply_text(construct_location_line(d, addr), parse_mode=constants.ParseMode('HTML'))
+        await update.message.reply_location(latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
+    lines = construct_location_line(nearest_bins)
 
+    for k in lines: 
+        await update.message.reply_text(lines[k], parse_mode=constants.ParseMode('HTML'))
+        await update.message.reply_location()
     await update.message.reply_text(
         "\n\n".join(lines.values()), parse_mode=constants.ParseMode('HTML')
     )
