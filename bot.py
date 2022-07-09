@@ -120,8 +120,10 @@ def main() -> None:
     application.add_handler(conv_handler)
 
     # Run the bot until the user presses Ctrl-C
-    application.run_polling()
-
+    application.run_webhook(listen="0.0.0.0",
+                          port=int(PORT),
+                          url_path=TOKEN, 
+                          webhook_url="https://recycling-recognition.herokuapp.com/" + TOKEN)
 
 if __name__ == "__main__":
     main()
