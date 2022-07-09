@@ -1,16 +1,18 @@
 from base64 import b64encode
 import io
 import logging
+from turtle import up
 from PIL import Image
 import os
-PORT = int(os.environ.get('PORT', 5000))
 
+PORT = int(os.environ.get('PORT', 5000))
+import json
 from dotenv import load_dotenv
 
 load_dotenv(".env")
 TOKEN = os.environ["BOT_TOKEN"]
 
-from telegram import ReplyKeyboardRemove, constants, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, constants, Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -18,6 +20,7 @@ from telegram.ext import (
     ConversationHandler,
     MessageHandler,
     filters,
+    CallbackQueryHandler
 )
 
 from api_classifier import classify_image
@@ -49,6 +52,33 @@ RECYCEABLE_NOTES = {
     "PET plastic bottle": "✅ These can be recycled in a blue bin! But please make sure they are clean so they won't cause contamination. \nBut please do not recycle this if it was used to contain food. ", 
     "steel and tin cans": "✅ These can be recycled in a blue bin! But please make sure they are clean so they won't cause contamination. \nBut please do not recycle this if it was used to contain food. "
 }
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Sends a message with three inline buttons attached."""
+    keyboard = [
+        [
+            InlineKeyboardButton("Option 1", callback_data="1"),
+            InlineKeyboardButton("Option 2", callback_data="2"),
+        ],
+        [InlineKeyboardButton("Option 3", callback_data="3")],
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text("Please choose:", reply_markup=reply_markup)
+
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Parses the CallbackQuery and updates the message text."""
+    query = update.callback_query
+
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    await query.answer()
+    addr = query.data
+    await query.edit_message_text(construct_location_line(addr), parse_mode=constants.ParseMode('HTML'))
+    await context.bot.send_location(chat_id=context._chat_id, latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
+
 
 async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
@@ -96,8 +126,8 @@ async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     return LOCATION
 
-def construct_location_line(d, addr): 
-    return f"🔷 <b>{addr['ADDRESSBLO'] + ' ' + addr['ADDRESSBUI']}</b>" + '\n' + f"<b>{addr['ADDRESSSTR']}</b>" + '\n' + f"<b>Singapore {addr['ADDRESSPOS']}</b>" + '\n' + f"{str(round(d, 2))} km away"
+def construct_location_line(addr): 
+    return f"🔷 <b>{addr['ADDRESSBLO'] + ' ' + addr['ADDRESSBUI']}</b>" + '\n' + f"<b>{addr['ADDRESSSTR']}</b>" + '\n' + f"<b>Singapore {addr['ADDRESSPOS']}</b>"
 
 async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the location and asks for some info about the user."""
@@ -108,9 +138,23 @@ async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
 
     nearest_bins = nearest(longitude=user_location.longitude, latitude=user_location.latitude)
+    keyboard = []
     for d, addr in nearest_bins: 
-        await update.message.reply_text(construct_location_line(d, addr), parse_mode=constants.ParseMode('HTML'))
-        await update.message.reply_location(latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
+        print(json.dumps(addr))
+        keyboard.append([InlineKeyboardButton(addr['ADDRESSBLO'] + ' ' + addr['ADDRESSBUI'] + ' ' + f"Singapore {addr['ADDRESSPOS']}" + ' ' + f'{d}km away', callback_data=addr)])
+        # await update.message.reply_text(construct_location_line(d, addr), parse_mode=constants.ParseMode('HTML'))
+        # await update.message.reply_location(latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text("Please choose recycling bin to view location:", reply_markup=reply_markup)
+
+    # keyboard = [
+    #     [
+    #         InlineKeyboardButton("Option 1", callback_data=(addr['LATITUDE'], addr['LONGITUDE']), ),
+    #         InlineKeyboardButton("Option 2", callback_data="2"),
+    #     ],
+    #     [InlineKeyboardButton("Option 3", callback_data="3")],
+    # ]
 
     # for k in lines: 
     #     await update.message.reply_text(lines[k], parse_mode=constants.ParseMode('HTML'))
@@ -118,8 +162,6 @@ async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # await update.message.reply_text(
     #     "\n\n".join(lines.values()), parse_mode=constants.ParseMode('HTML')
     # )
-
-    return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels and ends the conversation."""
@@ -135,11 +177,11 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 def main() -> None:
     """Run the bot."""
     # Create the Application and pass it your bot's token.
-    application = Application.builder().token(TOKEN).build()
+    application = Application.builder().token(TOKEN).arbitrary_callback_data(True).build()
 
     # Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("photo", get_photo), CommandHandler("location", get_location)],
+        entry_points=[CommandHandler("photo", get_photo), CommandHandler("location", get_location), CommandHandler("start", start)],
         states={
             PHOTO: [MessageHandler(filters.PHOTO, photo)],
             LOCATION: [MessageHandler(filters.LOCATION, location)]
@@ -148,6 +190,7 @@ def main() -> None:
     )
 
     application.add_handler(conv_handler)
+    application.add_handler(CallbackQueryHandler(button))
 
     # Run the bot until the user presses Ctrl-C
     # USE WHEN TESTING LOCALLY
