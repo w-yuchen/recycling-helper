@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv(".env")
 TOKEN = os.environ["BOT_TOKEN"]
 
-from telegram import ReplyKeyboardRemove, Update
+from telegram import ReplyKeyboardRemove, constants, Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -22,6 +22,8 @@ from telegram.ext import (
 
 from api_classifier import classify_image
 
+from nearest import nearest
+
 # Enable logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -29,8 +31,24 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-GENDER, PHOTO, LOCATION, BIO = range(4)
+PHOTO, LOCATION = range(2)
 
+RECYCEABLE_NOTES = {
+    'discarded clothing': "❤️ Consider donating or selling so they can be reused! ",
+    'food waste': "❌ Please dispose them in a normal bin, they <b>cannot</b> be recycled and will cause contamination. ", 
+    'plastic bags': "✅ These can be recycled in a blue bin! But please make sure they are clean so they won't cause contamination. ", 
+    'scrap metal pieces': "🏭 Please make sure they are clean and not too small or dangerous for workers to pick up. ", 
+    'wood scraps': "🪵 These cannot be thrown in a normal recycling bin, please look for a specialised vendor or dispose as general waste. ", 
+    "Recycleable Items": "These are recycleable items, but I am unable to tell what they are exactly. 😢", 
+
+    "aluminium can": "✅ These can be recycled in a blue bin! But please make sure they are clean so they won't cause contamination. ", 
+    "cardboard": "✅ These can be recycled in a blue bin! But please make sure they are clean so they won't cause contamination. ", 
+    "glass": "✅ These can be recycled in a blue bin! But please make sure they are clean so they won't cause contamination. \nPlease also make sure they are all glass and not crystal glass or procelein! ", 
+    "HDPE container": "✅ These can be recycled in a blue bin! But please make sure they are clean so they won't cause contamination. \nNote that food containers should not be recycled. ", 
+    "paper": "✅ These can be recycled in a blue bin! But please make sure they are clean so they won't cause contamination. \nBut please do not recycle this if it was used to contain food. ", 
+    "PET plastic bottle": "✅ These can be recycled in a blue bin! But please make sure they are clean so they won't cause contamination. \nBut please do not recycle this if it was used to contain food. ", 
+    "steel and tin cans": "✅ These can be recycled in a blue bin! But please make sure they are clean so they won't cause contamination. \nBut please do not recycle this if it was used to contain food. "
+}
 
 async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
@@ -63,19 +81,28 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     success, result = await classify_image(encoded)
 
     if success: 
+        result = list(map(lambda x: f'<b>{x.capitalize()}</b>' + '\n' + RECYCEABLE_NOTES[x], result))
         res_str = '\n'.join(result)
         await update.message.reply_text(
-                "You could be looking at:\n" + res_str
+                "You could be looking at:\n" + res_str, parse_mode=constants.ParseMode('HTML')
         )
     return ConversationHandler.END
 
 async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(
-        "Please send me your location. ",
+        "Please send me your location and I will show you the nearest recycling bins. ",
         reply_markup=ReplyKeyboardRemove(),
     )
 
     return LOCATION
+
+def location_line_constructor(data): 
+    item_keys = data['distance'].keys()
+    items = {k:"" for k in item_keys}
+
+    for k in item_keys: 
+        items[k] = f"🔷 <b>{data['ADDRESSBLO'][k] + ' ' + data['ADDRESSBUI'][k]}</b>" + '\n' + f"<b>{data['ADDRESSSTR'][k]}</b>" + '\n' + f"<b>Singapore {data['ADDRESSPOS'][k]}</b>" + '\n' + f"{data['NAME'][k]}" + '\n' + f"{str(round(data['distance'][k] / 1000, 2))} km away"
+    return items
 
 async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the location and asks for some info about the user."""
@@ -84,8 +111,12 @@ async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     logger.info(
         "Location of %s: %f / %f", user.first_name, user_location.latitude, user_location.longitude
     )
+
+    nearest_bins = nearest(longitude=user_location.longitude, latitude=user_location.latitude)
+    lines = location_line_constructor(nearest_bins)
+
     await update.message.reply_text(
-        f"Your location is {user_location}. "
+        "\n\n".join(lines.values()), parse_mode=constants.ParseMode('HTML')
     )
 
     return ConversationHandler.END
@@ -95,7 +126,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
     await update.message.reply_text(
-        "Bye! I hope we can talk again some day.", reply_markup=ReplyKeyboardRemove()
+        "Bye! ", reply_markup=ReplyKeyboardRemove()
     )
 
     return ConversationHandler.END

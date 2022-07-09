@@ -30,7 +30,8 @@ async def classify_image(source: str) -> Coroutine:
                             round2 = await process_round2(round2[0]['confidence'], payload, session)
                             top_labels = top_labels + round2
                             top_labels, _ = await process_results(sorted(top_labels, key=lambda x: x['confidence'], reverse=True))
-                        return True, list(map(lambda x: x['label'].capitalize(), top_labels))
+                            top_labels = map(lambda x: x['label'], top_labels)
+                        return True, ["paper" if (x == '2D paper' or x == '3D paper') else x for x in top_labels]
                     if data["status"] == "FAILED": 
                         return False, data["status"]
                 await sleep(0.2)
