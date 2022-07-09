@@ -3,4 +3,4 @@ python-dotenv==0.20.0
 python-telegram-bot==20.0a2
 Pillow==9.2.0
 geopandas
-simplekml
+pykml

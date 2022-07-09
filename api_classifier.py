@@ -50,7 +50,7 @@ async def process_round2(item, payload, session):
                 if data["status"] == "COMPLETE": 
                     top_labels, _ = await process_results(data["data"]["data"][0]['confidences'])
                     total_confidence = sum(top_labels.map(lambda x: x['confidence'], top_labels))
-                    
+                    # top
                     return True, data["data"]["data"][0]['label']
                 if data["status"] == "FAILED": 
                     return False, data["status"]
