@@ -62,10 +62,11 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     success, result = await classify_image(encoded)
 
-    await update.message.reply_text(
-        f"You are looking at {str(result)}. " if success else result
-    )
-
+    if success: 
+        res_str = '\n'.join(result)
+        await update.message.reply_text(
+                "You could be looking at:\n" + res_str
+        )
     return ConversationHandler.END
 
 async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -119,13 +120,13 @@ def main() -> None:
 
     # Run the bot until the user presses Ctrl-C
     # USE WHEN TESTING LOCALLY
-    application.run_polling()
+    # application.run_polling()
 
     # USE ON CLOUD
-    # application.run_webhook(listen="0.0.0.0",
-    #                       port=int(PORT),
-    #                       url_path=TOKEN, 
-    #                       webhook_url="https://recycling-recognition.herokuapp.com/" + TOKEN)
+    application.run_webhook(listen="0.0.0.0",
+                          port=int(PORT),
+                          url_path=TOKEN, 
+                          webhook_url="https://recycling-recognition.herokuapp.com/" + TOKEN)
 
 if __name__ == "__main__":
     main()

@@ -5,8 +5,8 @@ import aiohttp
 PUSH_ENDPOINT = "https://hf.space/embed/dpv/Stage1Recycling/api/queue/push/"
 RESULT_ENDPOINT = "https://hf.space/embed/dpv/Stage1Recycling/api/queue/status/"
 
-PUSH_ENDPOINT2 = "https://hf.space/embed/dpv/Stage2Recycling/api/predict/"
-RESULT_ENDPOINT2 = "https://huggingface.co/api/spaces/dpv/Stage2Recycling/status/"
+PUSH_ENDPOINT2 = "https://hf.space/embed/dpv/Stage2Recycling/api/queue/push/"
+RESULT_ENDPOINT2 = "https://hf.space/embed/dpv/Stage2Recycling/api/queue/status/"
 
 async def classify_image(source: str) -> Coroutine: 
     payload = {
@@ -23,25 +23,31 @@ async def classify_image(source: str) -> Coroutine:
             while True:
                 async with session.post(RESULT_ENDPOINT, json={"hash": hash}) as res: 
                     data = await res.json()
-                    print(data)
+                    # print(data)
                     if data["status"] == "COMPLETE": 
                         top_labels, round2 = await process_results(data["data"]["data"][0]['confidences'])
                         if len(round2) > 0: 
-                            top_labels = top_labels + await process_round2(round2[0]['confidence'], payload, session)
-                        return True, data["data"]["data"][0]['label']
+                            round2 = await process_round2(round2[0]['confidence'], payload, session)
+                            top_labels = top_labels + round2
+                            top_labels, _ = await process_results(sorted(top_labels, key=lambda x: x['confidence'], reverse=True))
+                        return True, list(map(lambda x: x['label'].capitalize(), top_labels))
                     if data["status"] == "FAILED": 
                         return False, data["status"]
                 await sleep(0.2)
 
 async def process_results(results): 
     highest = results[0]['confidence']
-    labels = []
     top_labels = filter(lambda x: highest - x['confidence'] < 0.2, results)
-    return top_labels, filter(lambda x: x['label'] == 'recyc_no_scrap', top_labels)
+    res = []
+    round2 = []
+    for x in top_labels: 
+        res.append(x) if x['label'] != 'recyc_no_scrap' else round2.append(x)
+    return res, round2
 
-async def process_round2(item, payload, session): 
+async def process_round2(confidence, payload, session): 
     async with session.post(PUSH_ENDPOINT2, json=payload) as response: 
         hash = await response.json()
+        # print(hash)
         hash = hash["hash"]
         while True:
             async with session.post(RESULT_ENDPOINT2, json={"hash": hash}) as res: 
@@ -49,9 +55,9 @@ async def process_round2(item, payload, session):
                 print(data)
                 if data["status"] == "COMPLETE": 
                     top_labels, _ = await process_results(data["data"]["data"][0]['confidences'])
-                    total_confidence = sum(top_labels.map(lambda x: x['confidence'], top_labels))
-                    # top
-                    return True, data["data"]["data"][0]['label']
+                    # total_confidence = sum(map(lambda x: x['confidence'], top_labels))
+                    # top_labels = map(lambda x: x[])
+                    return top_labels
                 if data["status"] == "FAILED": 
-                    return False, data["status"]
+                    return [{"label": "Recycleable Items", "confidence": confidence}]
             await sleep(0.2)
