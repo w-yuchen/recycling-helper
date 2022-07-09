@@ -97,7 +97,7 @@ async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     return LOCATION
 
 def construct_location_line(d, addr): 
-    return f"🔷 <b>{addr['ADDRESSBLO'] + ' ' + addr['ADDRESSBUI']}</b>" + '\n' + f"<b>{addr['ADDRESSSTR']}</b>" + '\n' + f"<b>Singapore {addr['ADDRESSPOS']}</b>" + '\n' + f"{addr['NAME']}" + '\n' + f"{str(round(d, 2))} km away"
+    return f"🔷 <b>{addr['ADDRESSBLO'] + ' ' + addr['ADDRESSBUI']}</b>" + '\n' + f"<b>{addr['ADDRESSSTR']}</b>" + '\n' + f"<b>Singapore {addr['ADDRESSPOS']}</b>" + '\n' + f"{str(round(d, 2))} km away"
 
 async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the location and asks for some info about the user."""
@@ -111,14 +111,13 @@ async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     for d, addr in nearest_bins: 
         await update.message.reply_text(construct_location_line(d, addr), parse_mode=constants.ParseMode('HTML'))
         await update.message.reply_location(latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
-    lines = construct_location_line(nearest_bins)
 
-    for k in lines: 
-        await update.message.reply_text(lines[k], parse_mode=constants.ParseMode('HTML'))
-        await update.message.reply_location()
-    await update.message.reply_text(
-        "\n\n".join(lines.values()), parse_mode=constants.ParseMode('HTML')
-    )
+    # for k in lines: 
+    #     await update.message.reply_text(lines[k], parse_mode=constants.ParseMode('HTML'))
+    #     await update.message.reply_location()
+    # await update.message.reply_text(
+    #     "\n\n".join(lines.values()), parse_mode=constants.ParseMode('HTML')
+    # )
 
     return ConversationHandler.END
 
