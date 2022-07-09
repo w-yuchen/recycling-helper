@@ -5,8 +5,10 @@ from PIL import Image
 import os
 PORT = int(os.environ.get('PORT', 5000))
 
-from dotenv import dotenv_values
-TOKEN = dotenv_values(".env")["BOT_TOKEN"]
+from dotenv import load_dotenv
+
+load_dotenv(".env")
+TOKEN = os.environ["BOT_TOKEN"]
 
 from telegram import ReplyKeyboardRemove, Update
 from telegram.ext import (
@@ -120,6 +122,7 @@ def main() -> None:
     application.add_handler(conv_handler)
 
     # Run the bot until the user presses Ctrl-C
+    # application.run_polling()
     application.run_webhook(listen="0.0.0.0",
                           port=int(PORT),
                           url_path=TOKEN, 
