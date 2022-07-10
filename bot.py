@@ -33,7 +33,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-PHOTO, LOCATION, SECONDHAND = range(3)
+PHOTO, LOCATION, SECONDHAND, HELP = range(4)
 
 RECYCEABLE_NOTES = {
     'discarded clothing': "❤️ Consider donating or selling so they can be reused! ",
@@ -66,6 +66,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text("Please choose:", reply_markup=reply_markup)
+
+async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = '''
+    Greetings! I am RecycleBuddy.\n
+
+    Type /recycling , or click on it, then send your location by attachment (paperclip button) so that I can know where you are and tell you the nearest recycling place!\n
+
+    Type /secondhand , or click on it, then send your location by attachment (paperclip button) so that I can know where you are and tell you the nearest secondhand collection point!\n
+
+    Type /photo , or click on it, then take a photo so that I can see what you are trying to recycle and provide recommendations!\n
+    '''
+
+    await update.message.reply_text(msg)
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Parses the CallbackQuery and updates the message text."""
@@ -170,7 +183,7 @@ async def second_hand_location(update: Update, context: ContextTypes.DEFAULT_TYP
     for d, addr in nearest_secondhand_shops: 
         print(json.dumps(addr))
         addr['type'] = 1
-        keyboard.append([InlineKeyboardButton(f'{round(d, 2)}km away', callback_data=addr)])
+        keyboard.append([InlineKeyboardButton(f'{round(d, 2)} km away', callback_data=addr)])
         # await update.message.reply_text(construct_location_line(d, addr), parse_mode=constants.ParseMode('HTML'))
         # await update.message.reply_location(latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -190,7 +203,7 @@ async def location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for d, addr in nearest_bins: 
         print(json.dumps(addr))
         addr['type'] = 0
-        keyboard.append([InlineKeyboardButton(f'{round(d, 2)}km away', callback_data=addr)])
+        keyboard.append([InlineKeyboardButton(f'{round(d, 2)} km away', callback_data=addr)])
         # await update.message.reply_text(construct_location_line(d, addr), parse_mode=constants.ParseMode('HTML'))
         # await update.message.reply_location(latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -230,11 +243,13 @@ def main() -> None:
 
     # Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("photo", get_photo), CommandHandler("recycling", get_location), CommandHandler("secondhand", get_location_second_hand)],
+        entry_points=[CommandHandler("photo", get_photo), CommandHandler("recycling", get_location), 
+            CommandHandler("secondhand", get_location_second_hand), CommandHandler("help", help)],
         states={
             PHOTO: [MessageHandler(filters.PHOTO, photo)],
             LOCATION: [MessageHandler(filters.LOCATION, location)], 
-            SECONDHAND: [MessageHandler(filters.LOCATION, second_hand_location)]
+            SECONDHAND: [MessageHandler(filters.LOCATION, second_hand_location)], 
+            HELP: [MessageHandler(filters.TEXT, help)]
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
