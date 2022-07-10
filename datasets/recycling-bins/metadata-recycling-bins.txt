@@ -1,0 +1,40 @@
+# Metadata for Recycling Bins
+---
+Identifier: 'c9d2c42f-6523-415b-8e72-919e3a50005c'
+Name: 'recycling-bins'
+Title: 'Recycling Bins'
+Description: 'Location of Recycling Bins'
+Topics:
+  - 'Environment'
+Keywords:
+  - 'bin'
+  - 'bins'
+  - 'onemap'
+  - 'recycle'
+  - 'recycling'
+  - 'themes'
+Publisher:
+  Name: 'National Environment Agency'
+  Admin 1:
+    Name: 'Anabel Lee'
+    Department: 'National Environment Agency'
+    Email: 'Anabel_Lee@nea.gov.sg'
+Sources:
+  - 'National Environment Agency'
+Source Url: 'http://www.onemap.sg/API/Help/'
+License: 'https://data.gov.sg/open-data-licence'
+Frequency: 'Annual'
+Last Updated: '2017-06-06T03:56:26.191336'
+Resources:
+  -
+    Identifier: '895f1883-d3bf-467c-833c-226ad92c6229'
+    Title: 'Recycling Bins (KML)'
+    Url: 'https://geo.data.gov.sg/recyclingbins/2017/06/02/kml/recyclingbins.zip'
+    Format: 'KML'
+    Last Updated: '2017-06-01T16:00:00'
+  -
+    Identifier: '8ec05819-7d0b-489c-826e-e196f5f4114e'
+    Title: 'Recycling Bins (SHP)'
+    Url: 'https://geo.data.gov.sg/recyclingbins/2017/06/02/shp/recyclingbins.zip'
+    Format: 'SHP'
+    Last Updated: '2017-06-01T16:00:00'

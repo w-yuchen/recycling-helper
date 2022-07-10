@@ -25,7 +25,7 @@ from telegram.ext import (
 
 from api_classifier import classify_image
 
-from nearest import nearest
+from nearest import SECONDHAND, nearest_bin, nearest_secondhand
 
 # Enable logging
 logging.basicConfig(
@@ -33,8 +33,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-PHOTO, LOCATION = range(2)
+PHOTO, LOCATION, SECONDHAND = range(3)
 
 RECYCEABLE_NOTES = {
     'discarded clothing': "❤️ Consider donating or selling so they can be reused! ",
@@ -76,9 +75,23 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     await query.answer()
     addr = query.data
-    await query.edit_message_text(construct_location_line(addr), parse_mode=constants.ParseMode('HTML'))
-    await context.bot.send_location(chat_id=context._chat_id, latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
+    if addr['type'] == 0: 
+        await query.edit_message_text(construct_location_line(addr), parse_mode=constants.ParseMode('HTML'))
+        await context.bot.send_location(chat_id=context._chat_id, latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
+    else: 
+        await query.edit_message_text(construct_location_line2(addr), parse_mode=constants.ParseMode('HTML'))
+        await context.bot.send_location(chat_id=context._chat_id, latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
 
+# async def button2(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+#     """Parses the CallbackQuery and updates the message text."""
+#     query = update.callback_query
+
+#     # CallbackQueries need to be answered, even if no notification to the user is needed
+#     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+#     await query.answer()
+#     addr = query.data
+#     await query.edit_message_text(construct_location_line2(addr), parse_mode=constants.ParseMode('HTML'))
+#     await context.bot.send_location(chat_id=context._chat_id, latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
 
 async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
@@ -108,14 +121,18 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     encoded = img_str.decode("utf-8")
 
-    success, result = await classify_image(encoded)
+    success, res = await classify_image(encoded)
 
     if success: 
-        result = list(map(lambda x: f'<b>{x.capitalize()}</b>' + '\n' + RECYCEABLE_NOTES[x], result))
+        result = list(map(lambda x: f'<b>{x.capitalize()}</b>' + '\n' + RECYCEABLE_NOTES[x], res))
         res_str = '\n'.join(result)
         await update.message.reply_text(
                 "You could be looking at:\n" + res_str, parse_mode=constants.ParseMode('HTML')
         )
+        if 'discarded clothing' in res: 
+            await context.bot.send_message(chat_id=context._chat_id, text="For old clothes, if you wish to sell them, you can use /secondhand command to find the nearest collection centres near you! ")
+        await context.bot.send_message(chat_id=context._chat_id, text="You can use /recycling command to find the nearest recycling bins near you! ")
+
     return ConversationHandler.END
 
 async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -126,10 +143,41 @@ async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     return LOCATION
 
+async def get_location_second_hand(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text(
+        "Please send me your location and I will show you the nearest used goods collectors. ",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+    return SECONDHAND
+
+
 def construct_location_line(addr): 
     return f"🔷 <b>{addr['ADDRESSBLO'] + ' ' + addr['ADDRESSBUI']}</b>" + '\n' + f"<b>{addr['ADDRESSSTR']}</b>" + '\n' + f"<b>Singapore {addr['ADDRESSPOS']}</b>"
 
-async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+def construct_location_line2(addr): 
+    return f"🔷 <b>{addr['ADDRESSBUILDINGNAME']}</b>" + '\n' + f"<b>{addr['ADDRESSBLOCKHOUSENUMBER']} {addr['ADDRESSSTREETNAME']}</b>" + '\n' + f"<b>Singapore {addr['ADDRESSPOSTALCODE']}</b>" + '\n' + f"{addr['NAME']}" + '\n' + f"{addr['DESCRIPTION']}"
+
+async def second_hand_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.from_user
+    user_location = update.message.location
+    logger.info(
+        "Location of %s: %f / %f", user.first_name, user_location.latitude, user_location.longitude
+    )
+
+    nearest_secondhand_shops = nearest_secondhand(longitude=user_location.longitude, latitude=user_location.latitude)
+    keyboard = []
+    for d, addr in nearest_secondhand_shops: 
+        print(json.dumps(addr))
+        addr['type'] = 1
+        keyboard.append([InlineKeyboardButton(f'{round(d, 2)}km away', callback_data=addr)])
+        # await update.message.reply_text(construct_location_line(d, addr), parse_mode=constants.ParseMode('HTML'))
+        # await update.message.reply_location(latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text("Please choose recycling bin to view location:", reply_markup=reply_markup)
+
+async def location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Stores the location and asks for some info about the user."""
     user = update.message.from_user
     user_location = update.message.location
@@ -137,11 +185,12 @@ async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "Location of %s: %f / %f", user.first_name, user_location.latitude, user_location.longitude
     )
 
-    nearest_bins = nearest(longitude=user_location.longitude, latitude=user_location.latitude)
+    nearest_bins = nearest_bin(longitude=user_location.longitude, latitude=user_location.latitude)
     keyboard = []
     for d, addr in nearest_bins: 
         print(json.dumps(addr))
-        keyboard.append([InlineKeyboardButton(addr['ADDRESSBLO'] + ' ' + addr['ADDRESSBUI'] + ' ' + f"Singapore {addr['ADDRESSPOS']}" + ' ' + f'{d}km away', callback_data=addr)])
+        addr['type'] = 0
+        keyboard.append([InlineKeyboardButton(f'{round(d, 2)}km away', callback_data=addr)])
         # await update.message.reply_text(construct_location_line(d, addr), parse_mode=constants.ParseMode('HTML'))
         # await update.message.reply_location(latitude=addr['LATITUDE'], longitude=addr['LONGITUDE'])
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -181,26 +230,28 @@ def main() -> None:
 
     # Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("photo", get_photo), CommandHandler("location", get_location), CommandHandler("start", start)],
+        entry_points=[CommandHandler("photo", get_photo), CommandHandler("recycling", get_location), CommandHandler("secondhand", get_location_second_hand)],
         states={
             PHOTO: [MessageHandler(filters.PHOTO, photo)],
-            LOCATION: [MessageHandler(filters.LOCATION, location)]
+            LOCATION: [MessageHandler(filters.LOCATION, location)], 
+            SECONDHAND: [MessageHandler(filters.LOCATION, second_hand_location)]
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
     application.add_handler(conv_handler)
     application.add_handler(CallbackQueryHandler(button))
+    # application.add_handler(CallbackQueryHandler(button2))
 
     # Run the bot until the user presses Ctrl-C
     # USE WHEN TESTING LOCALLY
-    # application.run_polling()
+    application.run_polling()
 
     # USE ON CLOUD
-    application.run_webhook(listen="0.0.0.0",
-                          port=int(PORT),
-                          url_path=TOKEN, 
-                          webhook_url="https://recycling-recognition.herokuapp.com/" + TOKEN)
+    # application.run_webhook(listen="0.0.0.0",
+    #                       port=int(PORT),
+    #                       url_path=TOKEN, 
+    #                       webhook_url="https://recycling-recognition.herokuapp.com/" + TOKEN)
 
 if __name__ == "__main__":
     main()

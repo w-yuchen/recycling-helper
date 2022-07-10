@@ -1,41 +1,38 @@
-# import geopandas as gpd
-# from SVY21 import SVY21
-# from shapely.geometry.point import Point
-# from pprint import pprint
+import csv
+from geopy.distance import distance
 
-# cv = SVY21()
-# RECYCLINGBINS = gpd.read_file('datasets/recycling-bins-shp/RECYCLINGBINS.shp')
+with open('datasets/recycling-bins/recycling_bins.csv', 'r') as rr:
+    RECYCLING_BINS = list(csv.DictReader(rr))
 
-# # SOC = 103.77365634235952, 1.295056594145143
-# def nearest(longitude, latitude, topNum=3):
-#     N, E = cv.computeSVY21(latitude, longitude)
-#     origin = Point(E, N)
-#     RECYCLINGBINS['distance'] = RECYCLINGBINS['geometry'].distance(origin)
-#     topFew = RECYCLINGBINS.sort_values(by=['distance']).head(topNum)
-#     return topFew.to_dict()
+with open('datasets/2nd-hand-goods-collection-points/secondhand.csv', 'r') as ss:
+    SECONDHAND = list(csv.DictReader(ss))
 
-def nearest(longitude, latitude, topNum=3): 
-    return [(1.0626096996625594,
-  {'ADDRESSBLO': '611',
-   'ADDRESSBUI': 'HDB-CLEMENTI',
-   'ADDRESSPOS': '120611',
-   'ADDRESSSTR': 'CLEMENTI WEST STREET 1',
-   'LATITUDE': '1.3036967344862374',
-   'LONGITUDE': '103.76947657084446',
-   'OBJECTID': '8528'}),
- (1.082667232806678,
-  {'ADDRESSBLO': '612',
-   'ADDRESSBUI': 'HDB-CLEMENTI',
-   'ADDRESSPOS': '120612',
-   'ADDRESSSTR': 'CLEMENTI WEST STREET 1',
-   'LATITUDE': '1.3034415337965612',
-   'LONGITUDE': '103.76863303248963',
-   'OBJECTID': '951'}),
- (1.1578243554067367,
-  {'ADDRESSBLO': '350',
-   'ADDRESSBUI': 'KAMPONG UBI VIEW',
-   'ADDRESSPOS': '400350',
-   'ADDRESSSTR': 'UBI AVENUE 1',
-   'LATITUDE': '1.325803428654137',
-   'LONGITUDE': '103.90129203909851',
-   'OBJECTID': '995'})]
+# SOC
+# latitude, longitude = 1.295056594145143, 103.77365634235952
+def nearest_bin(latitude, longitude, topNum=3):
+    distances = [
+        (
+            distance((latitude, longitude), (x['LATITUDE'], x['LONGITUDE'])).km,
+            int(x['OBJECTID']) - 1
+        )
+        for x in RECYCLING_BINS
+    ]
+    distances.sort(key=lambda x: x[0])
+    topFew = []
+    for i in range(topNum):
+        kilometers, bin_index = distances[i]
+        topFew.append((kilometers, RECYCLING_BINS[bin_index]))
+    return topFew
+
+# there are only 21
+def nearest_secondhand(latitude, longitude, topNum=2):
+    distances = list(enumerate([
+        distance((latitude, longitude), (x['LATITUDE'], x['LONGITUDE'])).km
+        for x in SECONDHAND
+    ]))
+    distances.sort(key=lambda x: x[1])
+    topFew = []
+    for i in range(topNum):
+        index, kilometers = distances[i]
+        topFew.append((kilometers, SECONDHAND[index]))
+    return topFew
